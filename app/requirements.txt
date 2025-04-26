@@ -1,6 +1,6 @@
 fastapi
-uvicorn[standard]
-python-multipart
+uvicorn
 pillow
-httpx
-pytest
+torch
+torchvision
+python-multipart

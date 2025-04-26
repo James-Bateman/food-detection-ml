@@ -126,4 +126,4 @@ Then open [http://127.0.0.1:5173](http://127.0.0.1:5173) in your browser!
 
 ---
 
-Built with love ❤️ by [James Bateman]
+Built by [James Bateman]

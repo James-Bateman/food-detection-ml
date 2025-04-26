@@ -1,44 +1,43 @@
-import io
-
-from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
+import io
+import torch
+import torchvision.transforms as transforms
+from app.models.model import predict_image
+from app.schemas import PredictionResponse
 
-from app.model import predict
-from fastapi.staticfiles import StaticFiles
-import os
+app = FastAPI()
 
-app = FastAPI(title="Food Recognition API")
-# Serve static frontend assets
-app.mount(
-    "/static",
-    StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")),
-    name="static",
+# Allow frontend to communicate
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, you would restrict this
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-@app.get("/ui", response_class=HTMLResponse)
-async def get_ui():
-    """Serve the frontend UI."""
-    file_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception:
-        return HTMLResponse(status_code=404, content="UI not found")
+# Load model once at startup
+# model is loaded in model.py when predict_image is imported
 
-@app.get("/")
-async def root():
-    return {"message": "Food Recognition API"}
+# Define image transformations
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor()
+])
 
-@app.post("/predict")
-async def predict_food(file: UploadFile = File(...)):
-    """
-    Accept an uploaded image file and return food predictions.
-    """
+@app.post("/predict", response_model=PredictionResponse)
+async def predict(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
     except Exception:
-        return JSONResponse(status_code=400, content={"error": "Invalid image file"})
-    results = predict(image)
-    return {"predictions": results}
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    img = image
+
+    with torch.no_grad():
+        label = predict_image(img)
+
+    return PredictionResponse(label=label)
